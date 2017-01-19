@@ -1,0 +1,132 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "Toshiyuki Tachibana"
+date: "2017-1-18"
+output: html_document
+---
+##INTRODUCTION##
+
+This is document describing the analysis I conducted for my final project for the Johns HopkinsÅf Coursera course ÅgPractical Machine LearningÅh in the Data Science specialization.
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+The goal of your project is to predict the manner in which they did the exercise. I describe how to built my models, how I used
+cross validation,  what I think the expected out of sample error is, and why I made the choices I did. I also used my prediction model to predict 20 different test cases.
+
+
+##Data##
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+##Load Data and conduct initial data exploration##
+
+**Set working directory**
+
+```{r}
+setwd("C:/Users/Tachibana/Documents/GitHub/Practical_Machine_learning")
+```
+
+**Load Data**
+
+```{r}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+Rawtraining <- data.frame(read.csv(trainUrl, header=TRUE))
+
+Rawtesting <- data.frame(read.csv(testUrl, header=TRUE))
+
+head(Rawtraining)
+```
+
+**Partioning the training set into two**
+
+```{r}
+library(caret)
+
+set.seed(975)
+
+inTrain = createDataPartition(Rawtraining$classe, p = 0.7)[[1]]
+
+training = Rawtraining[ inTrain,]
+
+testing = Rawtraining[-inTrain,]
+```
+
+**Clean Data**
+
+**Remove categorical variables, leaving only the sensor readings**
+
+```{r}
+df <- training[,8:ncol(training)]
+```
+
+**Remove Columns near to Zero**
+
+```{r}
+df_nzv <- nearZeroVar(df, saveMetrics=TRUE)
+remaining <- df_nzv[which(df_nzv$nzv==FALSE),]
+
+df_all_var <- subset(df , select=rownames(remaining))
+```
+
+**Remove Columns with NAs**
+
+```{r}
+df_rm_na <- df_all_var[ , colSums(is.na(df_all_var)) == 0]
+apply(df_rm_na,2,function(x) {all(is.na(df_all_var))})
+table(complete.cases(df_rm_na))
+table(sapply(df_rm_na[1,], class))
+```
+
+##Train Model##
+
+We used randomForest function in R to fit the predictors to the training set.
+
+```{r}
+library(randomForest)
+library(e1071)
+set.seed(123)
+modFit<- train(classe~ . , data = df_rm_na, method='rf')
+```
+
+```{r}
+save(modFit, file="modFit.RData")
+print(modFit$finalModel)
+```
+
+**Look at the variable importance to the model**
+
+```{r}
+varImp(modFit, useModel=TRUE)
+```
+
+##Predict values on testing data set##
+
+```{r}
+predictions <- predict(modFit, newdata = testing)
+pred <- data.frame(predictions, classe=testing$classe)
+
+confusionMatrix(predictions, testing$classe)
+```
+
+**Use random forest model to predict the outcome of the 20 test cases for submission**
+
+```{r}
+submission_outcomes <- predict(modFit, newdata = Rawtesting)
+submission_outcomes
+```
+
+
+
+
+
+
+
+
